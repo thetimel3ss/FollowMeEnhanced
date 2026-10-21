@@ -47,8 +47,8 @@ the labels are also hoverable and clickable.
 
 FOLLOW FIXES
   - Exact whisper matching and independent party/raid permissions.
-  - Persistent settings for all six options.
-  - Restores previous target after accepting a follow request.
+  - Persistent settings for all seven options.
+  - Follows the whisper sender via FollowByName, without changing target.
   - Associates client UI errors only with recent follow attempts.
   - Sends follow announcements after AUTOFOLLOW_BEGIN or END.
   - Vanilla 1.12.1 Lua 5.0 compatible; ClassicAPI not required.

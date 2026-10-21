@@ -4,7 +4,7 @@
 -- based on FollowMe 1.1.1a by Kinyen (Kingen in inherited header)
 --
 -- Follow-only fixes: persistent enabled state, safer authorization,
--- command parsing, target restoration, and scoped follow error reports.
+-- command parsing, target-independent follow, and scoped follow error reports.
 -- See ReadMe.txt for documentation.
 --
 
@@ -230,16 +230,6 @@ function FollowMe_InMyGroup(name)
    return false
 end
 
-local function FollowMe_RestoreTarget(originalTarget)
-   if originalTarget then
-      if UnitName("target") ~= originalTarget then
-         TargetLastTarget()
-      end
-   elseif UnitExists("target") then
-      ClearTarget()
-   end
-end
-
 -- Called by CHAT_MSG_WHISPER. Only exact @follow and @status are accepted.
 function FollowMe_ProcessWhisper(whisper, requester)
    if type(whisper) ~= "string" or type(requester) ~= "string" or requester == "" then
@@ -259,21 +249,11 @@ function FollowMe_ProcessWhisper(whisper, requester)
          return
       end
 
-      local originalTarget = nil
-      if UnitExists("target") then
-         originalTarget = UnitName("target")
-      end
-
-      TargetByName(requester, true)
-      if UnitName("target") == requester then
-         -- Errors during this short window can be attributed to a follow
-         -- request; unrelated UI errors must never whisper the last sender.
-         pendingFollow = { name = requester, expires = GetTime() + 2 }
-         FollowUnit("target")
-      else
-         FollowMe_SendWhisper(requester, FM_ERR_GENERIC)
-      end
-      FollowMe_RestoreTarget(originalTarget)
+      -- Track this authorized request before calling FollowByName so
+      -- synchronous follow errors are associated with the correct sender.
+      pendingFollow = { name = requester, expires = GetTime() + 2 }
+      -- Vanilla API: follow the whisper sender without changing our target.
+      FollowByName(requester)
       return
    end
 
