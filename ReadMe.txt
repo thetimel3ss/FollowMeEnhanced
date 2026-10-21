@@ -1,75 +1,137 @@
 ================================================================
-FollowMe Enhanced v1.3.0 - Follow-only edition (Vanilla WoW 1.12.1)
+Version 1.3.0
+
+ - Added a movable options UI with seven persistent checkboxes and tooltips.
+ - Added separate follow permissions for friends, guildmates, party and raid.
+ - Added separate party and raid follow announcements.
+ - Improved authorization and follow error reporting.
+ - Follow requests now use FollowByName without changing the current target.
+ - German localization removed.
+
+Commands
+ - "/fm" or "/followme"    - Opens or closes the options window.
+ - "/fm config" or "/fm options" - Opens or closes the options window.
+ - "/fm help"             - Lists current commands.
+ - "/fm status"           - Reports the current addon settings and follow status.
+ - "/fm party"            - Announces the AddOn to the party.
+ - "/fm raid"             - Announces the AddOn to the raid.
+ - "/fm whisper"          - Announces the AddOn to the targeted player.
+
+Whisper commands
+ - "@follow"              - Requests that the recipient follow the sender.
+ - "@status"              - Requests the recipient's addon status.
+
+Settings are now configured through the options UI. Older configuration
+commands described in the historical version notes below are no longer
+supported.
+
 ================================================================
+Version 1.2b
 
-No remote cast, @assist, macro execution or Nampower integration.
+ - new command
 
-RELEASE NOTES - v1.3.0
-  - Adds a movable options UI with seven persistent checkboxes and tooltips.
-  - Separates party and raid follow permissions while preserving prior settings.
-  - Accepts authorized @follow requests via FollowByName without changing target.
-  - Retains @status, follow start/end notifications and scoped error handling.
-  - Consolidates English localization; removes unused experimental features.
-  - Based on Lyriane's FollowMe Enhanced v1.2b and Kinyen's original FollowMe.
+Guild members and friends
+ - new command:
+  "/fm whisper"   - announces to your current target that you have this AddOn.
 
-LOCAL COMMANDS
-  /fm                - Open or close the options UI
-  /followme           - Open or close the options UI
-  /fm config          - Open or close the options UI
-  /fm options         - Open or close the options UI
-  /fm help            - List active commands in chat
-  /fm status          - Report enabled, permission and announce status
-  /fm party           - Explain addon usage in party chat
-  /fm raid            - Explain addon usage in raid chat
-  /fm whisper         - Explain addon usage to a targeted player
+================================================================
+Version 1.1b
 
-Settings are controlled exclusively through the options UI.
-The old /fm enable, disable, guild, friends, tellgroup, and tellraid
-commands are no longer accepted.
+ - Added support for guild members and friends
+ - Minor bug fixes
 
-WHISPER COMMANDS (exact, case-insensitive)
-  @follow             - Request that the recipient follow the sender
-  @status             - Request the recipient's addon status
+Guild members and friends
+ - new commands:
+  "/fm guild on/off"   - Toggles that guild members can put you in auto-follow
+  "/fm friends on/off" - Toggles that friends can put you in auto-follow
 
-OPTIONS UI - REMOTE FOLLOW
-  Enable              - Master follow switch, on by default.
-  Allow friends       - Allow players on your friends list; off by default.
-  Allow guildmates    - Allow your guild members; off by default.
-  Allow party         - Allow party members only, not raid; on by default.
-  Allow raid          - Allow raid members only; on by default. For an
-                        existing install, its initial value is copied
-                        from the old AllowParty setting once, then
-                        both permissions are independent.
+================================================================
+Version 1.0b
 
-  Checkbox placement:
-     Allow friends           Allow guildmates
-     Allow party             Allow raid
+ - Added support for SavedVariables
+ - Added raid support
+ - Added localization support (including german and english)
+ - Minor code modifications (pure cosmetic)
 
-OPTIONS UI - ANNOUNCEMENTS
-  Party               - Announce when following starts or ends in party.
-  Raid                - Announce when following starts or ends in raid.
-                        Party notifications take priority if both apply.
 
-Each of the seven checkboxes has a tooltip explaining its function;
-the labels are also hoverable and clickable.
+Localization support:
+ - All text strings for output
+ - Keywords to put you on auto-follow
+ - Keywords to configure FollowMe Enhanced
 
-FOLLOW FIXES
-  - Exact whisper matching and independent party/raid permissions.
-  - Persistent settings for all seven options.
-  - Follows the whisper sender via FollowByName, without changing target.
-  - Associates client UI errors only with recent follow attempts.
-  - Sends follow announcements after AUTOFOLLOW_BEGIN or END.
-  - Vanilla 1.12.1 Lua 5.0 compatible; ClassicAPI not required.
-  - German localization removed by request.
 
-HISTORICAL CREDITS
-  Lyriane of EU-Alleria: FollowMe Enhanced v1.2b.
-  Kinyen: Original FollowMe 1.1.1a, later maintained to v1.8.
-  In the inherited source header Kinyen was misspelled "Kingen".
-  The original ReadMe and Kinyen's 2005 WoWInterface forum post
-  confirm the original author spelling.
-  https://www.wowinterface.com/downloads/info4369-FollowMe.html
-  https://www.wowinterface.com/forums/showthread.php?t=2507
+================================================================
+FollowMe Enhanced - Changes made by Lyriane (addons@we-go-mc.de) ================================================================
 
-  No other original addon by Kinyen was listed on his author page.
-  Other addons by Lyriane were not independently verified.
+
+FollowMe 1.11
+Author: Kinyen (druidkinyen@hotmail.com)
+
+This AddOn allows party members to put you on auto-follow.  Most useful
+when people suddenly go AFK without telling anyone.  Normally, players
+can auto-follow any other player, but since this AddOn allows other
+people to control you, it will only allow members of your party to put
+you on auto-follow.
+
+FollowMe is different from FollowTheLeader in that it requires the follow
+commands to be at the beginning of whisper (i.e. "!follow").  That way if
+someone is whispering directions to you like "All you do is follow the
+path south", you won't automatically start following them. :)
+
+The following commands are supported:
+  "/fm announce"           - announces to your party that you have this AddOn.
+  "/fm enable"             - Allows others to put you on auto-follow.
+  "/fm disable"            - Does not allow others to put you on auto-follow.
+  "/fm tellgroup [on | off]- Turns on (or off) the sending of auto-follow
+                             messages to your group.
+  "/fm status"             - Reports the status of FollowMe (enabled,
+                             disabled, who is being followed).
+
+The received whisper can be one of:
+   "#follow" - Puts auto-follow on the whisper sender
+   "#status" - whispers the status (enabled/disabled) to the sender.
+               if following, will report who is being followed.
+
+NOTES:  Auto-follow is exclusive.  That is, you can be put
+        on auto-follow regardless of what you are doing
+        (i.e. tradeskills, casting spells, in the bank, etc).
+        Auto-Follow will cancel these operations.
+
+        The only way to cancel auto-follow is for the "following" person
+        to press a directional key.  As of update 1.6, all movement
+        functions  are ignored unless triggered by pressing a key.
+        There is no longer any way to stop auto-following under script
+        control.
+
+        The "disable" and "enable" commands do not really disable the AddOn.
+        They simply tell the addon to allow or not allow someone to put
+        you on auto-follow.
+
+
+What's new in 1.11
+==================
+ - Fixed an annoying bug that incorrectly reported non-grouped players
+   as being "too far away".  More cosmetic than anything but it was annoying
+   me. :)
+
+ - Added version number in all messages (!status, /fm status, etc).  This way when
+   another player /whispers !status to you, FollowMe will respond with the version 
+   number as well.
+
+Changes in 1.1
+==================
+ - Fixed scripting error that occurred while trying to loot or harvest
+   items that are too far away.
+
+ - Current target is retained when going on auto-follow.
+
+ - Typing "/fm" by itself now generates a usage message.
+
+ - added "/fm tellgroup on | off" (default on) to tell the group
+   start/stop follow messages.  Messages are always whispered to the "followed"
+   player.
+
+---------------------------------------------------------------------------------
+If you have any comments or suggestions or find any bugs, please don't
+hesitate to contact me at "druidkinyen@hotmail.com".
+
