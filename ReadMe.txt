@@ -25,21 +25,28 @@ WHISPER COMMANDS (exact, case-insensitive)
 
 OPTIONS UI - REMOTE FOLLOW
   Enable              - Master follow switch, on by default.
-  Allow party         - Allow party and raid members, including
-                        non-friends and non-guildmates; on by default.
   Allow friends       - Allow players on your friends list; off by default.
-  Allow guildmate     - Allow your guild members; off by default.
+  Allow guildmates    - Allow your guild members; off by default.
+  Allow party         - Allow party members only, not raid; on by default.
+  Allow raid          - Allow raid members only; on by default. For an
+                        existing install, its initial value is copied
+                        from the old AllowParty setting once, then
+                        both permissions are independent.
+
+  Checkbox placement:
+     Allow friends           Allow guildmates
+     Allow party             Allow raid
 
 OPTIONS UI - ANNOUNCEMENTS
   Party               - Announce when following starts or ends in party.
   Raid                - Announce when following starts or ends in raid.
                         Party notifications take priority if both apply.
 
-Each of the six checkboxes has a tooltip explaining its function;
+Each of the seven checkboxes has a tooltip explaining its function;
 the labels are also hoverable and clickable.
 
 FOLLOW FIXES
-  - Exact whisper matching and permissions per category.
+  - Exact whisper matching and independent party/raid permissions.
   - Persistent settings for all six options.
   - Restores previous target after accepting a follow request.
   - Associates client UI errors only with recent follow attempts.

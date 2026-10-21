@@ -96,15 +96,19 @@ local function FME_CreateOptions()
    FME_Check(optionsFrame, "Enabled", "Enable",
       "Master switch for incoming @follow requests. When off, nobody can request follow.",
       27, -83, 165)
-   FME_Check(optionsFrame, "AllowParty", "Allow party",
-      "Allow party and raid members to request @follow even when they are not friends or guildmates.",
-      27, -120, 165)
+   -- Permission matrix: friends | guildmates, then party | raid.
    FME_Check(optionsFrame, "FollowFriends", "Allow friends",
-      "Allow friends-list characters to request @follow even when outside your group.",
+      "Allow characters on your friends list to request @follow, regardless of party or raid membership.",
+      27, -120, 165)
+   FME_Check(optionsFrame, "FollowGuild", "Allow guildmates",
+      "Allow members of your guild to request @follow, regardless of party or raid membership.",
+      235, -120, 165)
+   FME_Check(optionsFrame, "AllowParty", "Allow party",
+      "Allow members of your current party to request @follow. This does not grant access to raid members.",
       27, -157, 165)
-   FME_Check(optionsFrame, "FollowGuild", "Allow guildmate",
-      "Allow guild members to request @follow even when outside your group or friends list.",
-      27, -194, 165)
+   FME_Check(optionsFrame, "AllowRaid", "Allow raid",
+      "Allow members of your current raid to request @follow. This setting is independent of Allow party.",
+      235, -157, 165)
 
    FME_Label(optionsFrame, "Announcements", 27, -243)
    FME_Check(optionsFrame, "Group", "Party",

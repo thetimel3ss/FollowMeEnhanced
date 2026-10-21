@@ -44,9 +44,14 @@ function FollowMe_InitOptions()
       FollowMe_Options["Enabled"] = true
    end
 
-   -- Keep historical group authorization until explicitly disabled.
+   -- Backward-compatible migration: the previous AllowParty setting
+   -- authorized both party and raid. Seed AllowRaid once from that
+   -- existing permission before making the two settings independent.
    if type(FollowMe_Options["AllowParty"]) ~= "boolean" then
       FollowMe_Options["AllowParty"] = true
+   end
+   if type(FollowMe_Options["AllowRaid"]) ~= "boolean" then
+      FollowMe_Options["AllowRaid"] = FollowMe_Options["AllowParty"]
    end
    local keys = { "Raid", "Group", "FollowFriends", "FollowGuild" }
    for i = 1, table.getn(keys) do
@@ -64,7 +69,8 @@ function FollowMe_InitOptions()
 end
 
 local FOLLOW_SETTINGS = {
-   Enabled = true, AllowParty = true, Group = true, Raid = true,
+   Enabled = true, AllowParty = true, AllowRaid = true,
+   Group = true, Raid = true,
    FollowFriends = true, FollowGuild = true
 }
 
@@ -142,8 +148,10 @@ function FollowMe_CmdParser(parm)
       FollowMe_LocalMsg(FM_STATUS_RAID .. tellraid .. ".")
       FollowMe_LocalMsg(FM_STATUS_GUILD .. followguild .. ".")
       FollowMe_LocalMsg(FM_STATUS_FRIENDS .. followfriends .. ".")
-      FollowMe_LocalMsg("   Party/raid follow requests: " ..
+      FollowMe_LocalMsg("   Party follow requests: " ..
          FollowMe_EnabledText(FollowMe_Options["AllowParty"]))
+      FollowMe_LocalMsg("   Raid follow requests: " ..
+         FollowMe_EnabledText(FollowMe_Options["AllowRaid"]))
       if following then
          FollowMe_LocalMsg(FM_WHISPER_STATUS_FOLLOW .. following)
       end
@@ -176,7 +184,7 @@ function FollowMe_CmdParser(parm)
    FollowMe_ShowHelp()
 end
 
--- Independent authorizations for groups, friends and guild members.
+-- Independent authorizations for party, raid, friends and guild members.
 function FollowMe_InMyGroup(name)
    if type(name) ~= "string" or name == "" then
       return false
@@ -186,18 +194,22 @@ function FollowMe_InMyGroup(name)
       return true
    end
 
-   if FollowMe_Options["AllowParty"] then
+   -- Party permission is only effective outside a raid. Even if a
+   -- custom client exposes party units while raiding, they must not
+   -- bypass the separate raid permission.
+   local numRaid = GetNumRaidMembers()
+   if numRaid > 0 then
+      if FollowMe_Options["AllowRaid"] then
+         for i = 1, numRaid do
+            if name == UnitName("raid" .. i) then
+               return true
+            end
+         end
+      end
+   elseif FollowMe_Options["AllowParty"] then
       local numParty = GetNumPartyMembers()
       for i = 1, numParty do
          if name == UnitName("party" .. i) then
-            return true
-         end
-      end
-
-      -- Raid members share the Allow party permission.
-      local numRaid = GetNumRaidMembers()
-      for i = 1, numRaid do
-         if name == UnitName("raid" .. i) then
             return true
          end
       end
