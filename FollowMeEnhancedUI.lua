@@ -1,0 +1,115 @@
+-- FollowMeEnhanced configuration, Vanilla WoW 1.12.1, Lua 5.0.
+-- No remote cast, macro, Nampower or ClassicAPI dependencies.
+local optionsFrame
+local checks = {}
+local followStatus
+
+local function FME_Label(parent, value, x, y, font)
+   local label = parent:CreateFontString(nil, "OVERLAY", font or "GameFontNormal")
+   label:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+   label:SetText(value)
+   return label
+end
+
+local function FME_Check(parent, key, text, x, y)
+   local check = CreateFrame("CheckButton", "FMECheck" .. key, parent,
+      "UICheckButtonTemplate")
+   check:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+   check:SetWidth(26)
+   check:SetHeight(26)
+
+   local caption = check:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+   caption:SetPoint("LEFT", check, "RIGHT", 2, 0)
+   caption:SetText(text)
+
+   check:SetScript("OnClick", function()
+      FME_SetOption(key, this:GetChecked() and true or false)
+   end)
+   checks[key] = check
+   return check
+end
+
+function FME_RefreshOptions()
+   if not optionsFrame then return end
+   FollowMe_InitOptions()
+   for key, check in pairs(checks) do
+      check:SetChecked(FollowMe_Options[key] and 1 or nil)
+   end
+   if followStatus then
+      local target = FME_GetFollowStatus()
+      if target and target ~= "" then
+         followStatus:SetText("Currently following: " .. target)
+      else
+         followStatus:SetText("Currently following: nobody")
+      end
+   end
+end
+
+local function FME_CreateOptions()
+   if optionsFrame then return end
+
+   optionsFrame = CreateFrame("Frame", "FMEOptionsFrame", UIParent)
+   optionsFrame:SetWidth(450)
+   optionsFrame:SetHeight(370)
+   optionsFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+   optionsFrame:SetFrameStrata("DIALOG")
+   optionsFrame:EnableMouse(true)
+   optionsFrame:SetMovable(true)
+   optionsFrame:RegisterForDrag("LeftButton")
+   optionsFrame:SetScript("OnDragStart", function() this:StartMoving() end)
+   optionsFrame:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
+   optionsFrame:SetBackdrop({
+      bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+      edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+      tile = true, tileSize = 32, edgeSize = 32,
+      insets = { left = 11, right = 12, top = 12, bottom = 11 }
+   })
+   optionsFrame:Hide()
+   table.insert(UISpecialFrames, "FMEOptionsFrame")
+
+   FME_Label(optionsFrame, "FollowMe Enhanced - Options", 27, -22,
+      "GameFontNormalLarge")
+   local close = CreateFrame("Button", nil, optionsFrame, "UIPanelCloseButton")
+   close:SetPoint("TOPRIGHT", optionsFrame, "TOPRIGHT", -5, -5)
+   close:SetScript("OnClick", function() optionsFrame:Hide() end)
+
+   FME_Label(optionsFrame, "Remote follow", 27, -65)
+   FME_Check(optionsFrame, "Enabled", "Enable remote follow", 27, -83)
+   FME_Check(optionsFrame, "FollowFriends",
+      "Allow friends to request follow", 27, -118)
+   FME_Check(optionsFrame, "FollowGuild",
+      "Allow guild members to request follow", 27, -153)
+
+   FME_Label(optionsFrame, "Announcements", 27, -198)
+   FME_Check(optionsFrame, "Group", "Announce in party", 27, -217)
+   FME_Check(optionsFrame, "Raid", "Announce in raid", 235, -217)
+
+   followStatus = FME_Label(optionsFrame, "Currently following: nobody",
+      30, -269, "GameFontHighlightSmall")
+   FME_Label(optionsFrame, "Whisper commands: @follow  |  @status",
+      30, -288, "GameFontHighlightSmall")
+
+   local help = CreateFrame("Button", "FMEHelpButton", optionsFrame,
+      "UIPanelButtonTemplate")
+   help:SetWidth(115)
+   help:SetHeight(23)
+   help:SetPoint("BOTTOMRIGHT", optionsFrame, "BOTTOMRIGHT", -28, 26)
+   help:SetText("Chat commands")
+   help:SetScript("OnClick", function()
+      FollowMe_CmdParser("help")
+   end)
+
+   FME_Label(optionsFrame, "Use /fm help for the full list",
+      30, -330, "GameFontHighlightSmall")
+   optionsFrame:SetScript("OnShow", FME_RefreshOptions)
+   FME_RefreshOptions()
+end
+
+function FME_ToggleOptions()
+   FME_CreateOptions()
+   if optionsFrame:IsShown() then
+      optionsFrame:Hide()
+   else
+      optionsFrame:Show()
+   end
+end

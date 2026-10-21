@@ -1,10 +1,8 @@
 --Commands
 FM_GROUP_ON = "on";
 FM_GROUP_OFF = "off";
-FM_WHISPERCOMMAND_FOLLOW = "#follow";
-FM_WHISPERCOMMAND_STATUS = "#status";
-FM_WHISPERCOMMAND_CAST = "#cast";
-FM_WHISPERCOMMAND_TARGET = "#target";
+FM_WHISPERCOMMAND_FOLLOW = "@follow";
+FM_WHISPERCOMMAND_STATUS = "@status";
 FM_COMMAND_STATUS = "status";
 FM_COMMAND_ANNOUNCE = "party";
 FM_COMMAND_RAID = "raid";
@@ -15,7 +13,6 @@ FM_COMMAND_TELLGROUP = "tellgroup";
 FM_COMMAND_TELLRAID = "tellraid";
 FM_COMMAND_FOLLOWGUILD = "guild";
 FM_COMMAND_FOLLOWFRIENDS = "friends";
-FM_COMMAND_WISP = "wisp";
 
 --Usage
 FM_USE_TITLE	 = "  Usage:";
@@ -55,6 +52,7 @@ FM_ERR_AUTOFOLLOW_TOO_FAR = "I cannot follow you.  Perhaps you're not close enou
 FM_ERR_INVALID_FOLLOW_TARGET = "I cannot follow you.  Perhaps you're not close enough?";
 FM_ERR_GENERIC = "I cannot follow you.  Perhaps you're not close enough?";
 FM_ERR_NOGROUP = "I can't follow you -- we're not in a group/raid";
+FM_ERR_NO_PLAYER_TARGET = "FollowMeEnhanced: Select a player before using /fm whisper.";
 FM_WHISPER_AUTOFOLLOW_BEGIN = "Following you...lead on :)";
 FM_PARTY_AUTOFOLLOW_BEGIN = "Auto-follow on ";
 FM_WHISPER_AUTOFOLLOW_END = "I'm no longer following you.";

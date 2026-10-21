@@ -1,4 +1,80 @@
 ================================================================
+FollowMe Enhanced - Follow-only edition (Vanilla WoW 1.12.1)
+================================================================
+
+This edition starts from the original master branch and includes
+only the follow fixes and the options UI. Remote spell casting,
+@assist, macro execution, Nampower diagnostics, and cast tests
+are intentionally absent. Experimental history remains on the
+separate local-changes branch.
+
+OPEN OPTIONS
+  /fm
+  /followme
+  /fm config
+  /fm options
+
+HELP
+  /fm help
+
+SUPPORTED WHISPER COMMANDS (case-insensitive; exact match):
+  @follow  - Requests that the recipient follow the sender
+  @status  - Requests the recipient's addon/follow status
+
+LOCAL COMMANDS
+  /fm status
+  /fm enable
+  /fm disable
+  /fm friends on/off
+  /fm guild on/off
+  /fm tellgroup on/off
+  /fm tellraid on/off
+  /fm party
+  /fm raid
+  /fm whisper
+  /fm help
+  /fm config / options
+
+OPTIONS UI
+  Enable remote follow
+  Allow friends to request follow
+  Allow guild members to request follow
+  Announce auto-follow changes in party
+  Announce auto-follow changes in raid
+
+FOLLOW CORRECTIONS
+  - Enabled/disabled persists through SavedVariables.
+  - Exact whisper command parsing; other commands are ignored.
+  - Permission check: party/raid by default; friends/guild if enabled.
+  - Follow attempts restore the previous target or clear a temporary
+    selection when there was no target.
+  - Follow-related UI errors are attributed only to a recent
+    @follow request, not to the latest unrelated whisper.
+  - A real AUTOFOLLOW_BEGIN/AUTOFOLLOW_END event drives
+    notifications; party announcements take precedence over raid.
+  - /fm tellraid off correctly saves false.
+  - /fm whisper verifies that a player is targeted.
+  - The follow panel uses Vanilla widgets with Lua 5.0 compatibility.
+  - Old German localization and ReadMe-de were removed by request.
+
+Compatibility:
+  WoW 1.12.1 client; ClassicAPI is not required.
+  English-only interface and messages.
+  Prior experimental Remote* SavedVariables may remain in the user's
+  saved settings, but are not read or used by this edition.
+
+NOTE
+  For accepted @follow requests, the addon targets the sender,
+  calls FollowUnit("target") and restores the previous selection.
+  If the client refuses the action, errors may still be delivered
+  by the base client; the addon does not bypass client restrictions.
+
+================================================================
+HISTORICAL README FROM THE ORIGINAL ADDON
+(The following text describes the original release and may contain
+ outdated commands; use the instructions above for this edition.)
+================================================================
+================================================================
 Version 1.2b
 
  - new command
