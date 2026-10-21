@@ -1,7 +1,7 @@
 ## Interface: 11200
 ## Title: FollowMe Enhanced v1.2b (by Lyriane)
 ## Notes: Allows authorized players to put you on auto-follow.
-## Author: Lyriane of EU-Alleria (original by Kingen)
+## Author: Lyriane of EU-Alleria (Enhanced); Kinyen (original FollowMe)
 ## SavedVariables: FollowMe_Options
 FollowMeEnhanced.xml
 localization.lua

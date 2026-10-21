@@ -1,7 +1,7 @@
 --
 -- FollowMe Enhanced 1.2b
 -- by Lyriane of EU-Alleria
--- based on FollowMe 1.1.1a by Kingen
+-- based on FollowMe 1.1.1a by Kinyen (Kingen in inherited header)
 --
 -- Follow-only fixes: persistent enabled state, safer authorization,
 -- command parsing, target restoration, and scoped follow error reports.
@@ -33,7 +33,7 @@ function FollowMe_LocalMsg(txt)
    DEFAULT_CHAT_FRAME:AddMessage(txt)
 end
 
--- Keep all persistent settings in one table for the planned options UI.
+-- Keep all persistent settings in one table for the options UI.
 -- Existing installations retain the four original option keys.
 function FollowMe_InitOptions()
    if type(FollowMe_Options) ~= "table" then
@@ -44,6 +44,10 @@ function FollowMe_InitOptions()
       FollowMe_Options["Enabled"] = true
    end
 
+   -- Keep historical group authorization until explicitly disabled.
+   if type(FollowMe_Options["AllowParty"]) ~= "boolean" then
+      FollowMe_Options["AllowParty"] = true
+   end
    local keys = { "Raid", "Group", "FollowFriends", "FollowGuild" }
    for i = 1, table.getn(keys) do
       local key = keys[i]
@@ -60,7 +64,7 @@ function FollowMe_InitOptions()
 end
 
 local FOLLOW_SETTINGS = {
-   Enabled = true, Group = true, Raid = true,
+   Enabled = true, AllowParty = true, Group = true, Raid = true,
    FollowFriends = true, FollowGuild = true
 }
 
@@ -88,11 +92,6 @@ local function FollowMe_ShowHelp()
    FollowMe_LocalMsg("  /fm help               - Show this command list")
    FollowMe_LocalMsg("  /fm config             - Open options (alias: options)")
    FollowMe_LocalMsg("  /fm status             - Show follow and announcement status")
-   FollowMe_LocalMsg("  /fm enable | disable   - Allow or block remote follow")
-   FollowMe_LocalMsg("  /fm friends on/off     - Allow friends to request follow")
-   FollowMe_LocalMsg("  /fm guild on/off       - Allow guild members to request follow")
-   FollowMe_LocalMsg("  /fm tellgroup on/off   - Announce follow changes in party")
-   FollowMe_LocalMsg("  /fm tellraid on/off    - Announce follow changes in raid")
    FollowMe_LocalMsg("  /fm party | raid       - Explain the addon in group chat")
    FollowMe_LocalMsg("  /fm whisper            - Explain the addon to your target")
    FollowMe_LocalMsg("  Whisper: @follow or @status")
@@ -143,6 +142,8 @@ function FollowMe_CmdParser(parm)
       FollowMe_LocalMsg(FM_STATUS_RAID .. tellraid .. ".")
       FollowMe_LocalMsg(FM_STATUS_GUILD .. followguild .. ".")
       FollowMe_LocalMsg(FM_STATUS_FRIENDS .. followfriends .. ".")
+      FollowMe_LocalMsg("   Party/raid follow requests: " ..
+         FollowMe_EnabledText(FollowMe_Options["AllowParty"]))
       if following then
          FollowMe_LocalMsg(FM_WHISPER_STATUS_FOLLOW .. following)
       end
@@ -172,55 +173,10 @@ function FollowMe_CmdParser(parm)
       return
    end
 
-   if cmd == FM_COMMAND_ENABLE then
-      FME_SetOption("Enabled", true)
-      FollowMe_LocalMsg("FollowMeEnhanced " .. FM_STATUS_ENABLED)
-      return
-   end
-
-   if cmd == FM_COMMAND_DISABLE then
-      FME_SetOption("Enabled", false)
-      FollowMe_LocalMsg("FollowMeEnhanced " .. FM_STATUS_DISABLED)
-      return
-   end
-
-   local setting
-   local resultPrefix
-   if cmd == FM_COMMAND_FOLLOWGUILD then
-      setting = "FollowGuild"
-      resultPrefix = FM_FOLLOWGUILD
-   elseif cmd == FM_COMMAND_FOLLOWFRIENDS then
-      setting = "FollowFriends"
-      resultPrefix = FM_FOLLOWFRIENDS
-   elseif cmd == FM_COMMAND_TELLGROUP then
-      setting = "Group"
-      resultPrefix = FM_TELLGROUP
-   elseif cmd == FM_COMMAND_TELLRAID then
-      setting = "Raid"
-      resultPrefix = FM_TELLRAID
-   end
-
-   if setting then
-      if option ~= FM_GROUP_ON and option ~= FM_GROUP_OFF then
-         FollowMe_LocalMsg("Usage: /fm " .. cmd .. " on/off")
-         return
-      end
-
-      local enabled = (option == FM_GROUP_ON)
-      FME_SetOption(setting, enabled)
-      if setting == "Group" or setting == "Raid" then
-         FollowMe_LocalMsg(resultPrefix .. FollowMe_GroupText(enabled))
-      else
-         FollowMe_LocalMsg(resultPrefix .. FollowMe_EnabledText(enabled) .. ".")
-      end
-      return
-   end
-
    FollowMe_ShowHelp()
 end
 
--- This function is based on WhisperCast, with group/raid checks from
--- the original FollowMe Enhanced. Friends/guild members are opt-in.
+-- Independent authorizations for groups, friends and guild members.
 function FollowMe_InMyGroup(name)
    if type(name) ~= "string" or name == "" then
       return false
@@ -230,17 +186,20 @@ function FollowMe_InMyGroup(name)
       return true
    end
 
-   local numParty = GetNumPartyMembers()
-   for i = 1, numParty do
-      if name == UnitName("party" .. i) then
-         return true
+   if FollowMe_Options["AllowParty"] then
+      local numParty = GetNumPartyMembers()
+      for i = 1, numParty do
+         if name == UnitName("party" .. i) then
+            return true
+         end
       end
-   end
 
-   local numRaid = GetNumRaidMembers()
-   for i = 1, numRaid do
-      if name == UnitName("raid" .. i) then
-         return true
+      -- Raid members share the Allow party permission.
+      local numRaid = GetNumRaidMembers()
+      for i = 1, numRaid do
+         if name == UnitName("raid" .. i) then
+            return true
+         end
       end
    end
 

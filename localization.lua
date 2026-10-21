@@ -7,30 +7,6 @@ FM_COMMAND_STATUS = "status";
 FM_COMMAND_ANNOUNCE = "party";
 FM_COMMAND_RAID = "raid";
 FM_COMMAND_TARGET = "whisper";
-FM_COMMAND_ENABLE = "enable";
-FM_COMMAND_DISABLE = "disable";
-FM_COMMAND_TELLGROUP = "tellgroup";
-FM_COMMAND_TELLRAID = "tellraid";
-FM_COMMAND_FOLLOWGUILD = "guild";
-FM_COMMAND_FOLLOWFRIENDS = "friends";
-
---Usage
-FM_USE_TITLE	 = "  Usage:";
-FM_USE_STATUS	 = "         status - Reports FollowMe status";
-FM_USE_ENABLE	 = "         enable - Enables FollowMe";
-FM_USE_DISABLE	 = "        disable - Disables FollowMe";
-FM_USE_GUILD	 = "   guild on/off - Toggles that guild members can put you in auto-follow";
-FM_USE_FRIENDS	 = " friends on/off - Toggles that friends can put you in auto-follow";
-FM_USE_ANNOUNCE1 = "          party - Announces to your group that";
-FM_USE_ANNOUNCE2 = "                  you have the FollowMe AddOn";
-FM_USE_RAID1	 = "           raid - Announces to your raid that";
-FM_USE_RAID2	 = "                  you have the FollowMe AddOn";
-FM_USE_WHISPER1	 = "        whisper - Announces to your target that";
-FM_USE_WHISPER2	 = "                  you have the FollowMe AddOn";
-FM_USE_TELL1	 = "tellgroup on/off- Toggles sending auto-follow messages to";
-FM_USE_TELL2	 = "                  your group";
-FM_USE_TELL3	 = "tellraid on/off - Toggles sending auto-follow messages to";
-FM_USE_TELL4	 = "                  your raid";
 
 --Status
 FM_STATUS_LOADED = "loaded";
@@ -51,7 +27,7 @@ FM_FOLLOWFRIENDS = "FollowMeEnhanced: Accept auto-follow requests by friends is 
 FM_ERR_AUTOFOLLOW_TOO_FAR = "I cannot follow you.  Perhaps you're not close enough?";
 FM_ERR_INVALID_FOLLOW_TARGET = "I cannot follow you.  Perhaps you're not close enough?";
 FM_ERR_GENERIC = "I cannot follow you.  Perhaps you're not close enough?";
-FM_ERR_NOGROUP = "I can't follow you -- we're not in a group/raid";
+FM_ERR_NOGROUP = "I cannot follow you -- your character is not authorized in my follow settings.";
 FM_ERR_NO_PLAYER_TARGET = "FollowMeEnhanced: Select a player before using /fm whisper.";
 FM_WHISPER_AUTOFOLLOW_BEGIN = "Following you...lead on :)";
 FM_PARTY_AUTOFOLLOW_BEGIN = "Auto-follow on ";

@@ -11,19 +11,38 @@ local function FME_Label(parent, value, x, y, font)
    return label
 end
 
-local function FME_Check(parent, key, text, x, y)
+local function FME_Check(parent, key, text, description, x, y, labelWidth)
    local check = CreateFrame("CheckButton", "FMECheck" .. key, parent,
       "UICheckButtonTemplate")
    check:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
    check:SetWidth(26)
    check:SetHeight(26)
-
    local caption = check:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
    caption:SetPoint("LEFT", check, "RIGHT", 2, 0)
    caption:SetText(text)
 
+   local function ShowTooltip(owner)
+      GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+      GameTooltip:SetText(text, 1, 0.82, 0.15)
+      GameTooltip:AddLine(description, 1, 1, 1, true)
+      GameTooltip:Show()
+   end
+
    check:SetScript("OnClick", function()
       FME_SetOption(key, this:GetChecked() and true or false)
+   end)
+   check:SetScript("OnEnter", function() ShowTooltip(this) end)
+   check:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+   -- The caption may be hovered and clicked just like the checkbox.
+   local labelButton = CreateFrame("Button", nil, parent)
+   labelButton:SetPoint("LEFT", check, "RIGHT", 0, 0)
+   labelButton:SetWidth(labelWidth or 170)
+   labelButton:SetHeight(26)
+   labelButton:SetScript("OnEnter", function() ShowTooltip(this) end)
+   labelButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
+   labelButton:SetScript("OnClick", function()
+      FME_SetOption(key, not FollowMe_Options[key])
    end)
    checks[key] = check
    return check
@@ -50,7 +69,7 @@ local function FME_CreateOptions()
 
    optionsFrame = CreateFrame("Frame", "FMEOptionsFrame", UIParent)
    optionsFrame:SetWidth(450)
-   optionsFrame:SetHeight(370)
+   optionsFrame:SetHeight(400)
    optionsFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
    optionsFrame:SetFrameStrata("DIALOG")
    optionsFrame:EnableMouse(true)
@@ -74,20 +93,31 @@ local function FME_CreateOptions()
    close:SetScript("OnClick", function() optionsFrame:Hide() end)
 
    FME_Label(optionsFrame, "Remote follow", 27, -65)
-   FME_Check(optionsFrame, "Enabled", "Enable remote follow", 27, -83)
-   FME_Check(optionsFrame, "FollowFriends",
-      "Allow friends to request follow", 27, -118)
-   FME_Check(optionsFrame, "FollowGuild",
-      "Allow guild members to request follow", 27, -153)
+   FME_Check(optionsFrame, "Enabled", "Enable",
+      "Master switch for incoming @follow requests. When off, nobody can request follow.",
+      27, -83, 165)
+   FME_Check(optionsFrame, "AllowParty", "Allow party",
+      "Allow party and raid members to request @follow even when they are not friends or guildmates.",
+      27, -120, 165)
+   FME_Check(optionsFrame, "FollowFriends", "Allow friends",
+      "Allow friends-list characters to request @follow even when outside your group.",
+      27, -157, 165)
+   FME_Check(optionsFrame, "FollowGuild", "Allow guildmate",
+      "Allow guild members to request @follow even when outside your group or friends list.",
+      27, -194, 165)
 
-   FME_Label(optionsFrame, "Announcements", 27, -198)
-   FME_Check(optionsFrame, "Group", "Announce in party", 27, -217)
-   FME_Check(optionsFrame, "Raid", "Announce in raid", 235, -217)
+   FME_Label(optionsFrame, "Announcements", 27, -243)
+   FME_Check(optionsFrame, "Group", "Party",
+      "Announce in party chat when you start or stop auto-following. This does not grant follow permission.",
+      27, -262, 150)
+   FME_Check(optionsFrame, "Raid", "Raid",
+      "Announce in raid chat when you start or stop auto-following. Party announcements take precedence if both qualify.",
+      235, -262, 150)
 
    followStatus = FME_Label(optionsFrame, "Currently following: nobody",
-      30, -269, "GameFontHighlightSmall")
+      30, -309, "GameFontHighlightSmall")
    FME_Label(optionsFrame, "Whisper commands: @follow  |  @status",
-      30, -288, "GameFontHighlightSmall")
+      30, -327, "GameFontHighlightSmall")
 
    local help = CreateFrame("Button", "FMEHelpButton", optionsFrame,
       "UIPanelButtonTemplate")
@@ -100,7 +130,7 @@ local function FME_CreateOptions()
    end)
 
    FME_Label(optionsFrame, "Use /fm help for the full list",
-      30, -330, "GameFontHighlightSmall")
+      30, -358, "GameFontHighlightSmall")
    optionsFrame:SetScript("OnShow", FME_RefreshOptions)
    FME_RefreshOptions()
 end
