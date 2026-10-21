@@ -1,435 +1,332 @@
 --
--- FollowMe Enhanced 1.2b
--- by Lyriane of EU-Alleria
--- based on FollowMe 1.1.1a by Kingen
+-- FollowMe Enhanced 1.3.0
+-- based on FollowMe Enhanced 1.2b by Lyriane of EU-Alleria
+-- originally FollowMe 1.1.1a by Kinyen (Kingen in inherited header)
 --
--- See Readme.txt for documentation
+-- Follow-only fixes: persistent enabled state, safer authorization,
+-- command parsing, target-independent follow, and scoped follow error reports.
+-- See ReadMe.txt for documentation.
 --
 
--- Local Variables
-local following=nil;
-local sender=nil;
-local FMEnabled=true;
-local FMVer="1.2b"
-local FMWisp=false;
+-- Local runtime state (the global FollowMe_Options is a SavedVariable).
+local following = nil
+local pendingFollow = nil
+local FMEnabled = true
+local FMVer = "1.3.0"
+local tellgrp, tellraid, followguild, followfriends
 
+local function FollowMe_EnabledText(enabled)
+   if enabled then
+      return FM_STATUS_ENABLED
+   end
+   return FM_STATUS_DISABLED
+end
+
+local function FollowMe_GroupText(enabled)
+   if enabled then
+      return FM_GROUP_ON
+   end
+   return FM_GROUP_OFF
+end
 
 function FollowMe_LocalMsg(txt)
-   DEFAULT_CHAT_FRAME:AddMessage(txt);
+   DEFAULT_CHAT_FRAME:AddMessage(txt)
+end
+
+-- Keep all persistent settings in one table for the options UI.
+-- Existing installations retain the four original option keys.
+function FollowMe_InitOptions()
+   if type(FollowMe_Options) ~= "table" then
+      FollowMe_Options = {}
+   end
+
+   if type(FollowMe_Options["Enabled"]) ~= "boolean" then
+      FollowMe_Options["Enabled"] = true
+   end
+
+   -- Backward-compatible migration: the previous AllowParty setting
+   -- authorized both party and raid. Seed AllowRaid once from that
+   -- existing permission before making the two settings independent.
+   if type(FollowMe_Options["AllowParty"]) ~= "boolean" then
+      FollowMe_Options["AllowParty"] = true
+   end
+   if type(FollowMe_Options["AllowRaid"]) ~= "boolean" then
+      FollowMe_Options["AllowRaid"] = FollowMe_Options["AllowParty"]
+   end
+   local keys = { "Raid", "Group", "FollowFriends", "FollowGuild" }
+   for i = 1, table.getn(keys) do
+      local key = keys[i]
+      if type(FollowMe_Options[key]) ~= "boolean" then
+         FollowMe_Options[key] = false
+      end
+   end
+
+   FMEnabled = FollowMe_Options["Enabled"]
+   tellgrp = FollowMe_GroupText(FollowMe_Options["Group"])
+   tellraid = FollowMe_GroupText(FollowMe_Options["Raid"])
+   followguild = FollowMe_EnabledText(FollowMe_Options["FollowGuild"])
+   followfriends = FollowMe_EnabledText(FollowMe_Options["FollowFriends"])
+end
+
+local FOLLOW_SETTINGS = {
+   Enabled = true, AllowParty = true, AllowRaid = true,
+   Group = true, Raid = true,
+   FollowFriends = true, FollowGuild = true
+}
+
+function FME_SetOption(key, enabled)
+   if not FOLLOW_SETTINGS[key] or type(enabled) ~= "boolean" then return end
+   FollowMe_InitOptions()
+   FollowMe_Options[key] = enabled
+   FollowMe_InitOptions()
+   if type(FME_RefreshOptions) == "function" then FME_RefreshOptions() end
+end
+
+function FollowMe_SendWhisper(name, message)
+   if type(name) == "string" and name ~= "" and type(message) == "string" and message ~= "" then
+      SendChatMessage(message, "WHISPER", nil, name)
+   end
+end
+
+local function FollowMe_ShowHelp()
+   FollowMe_LocalMsg("FollowMeEnhanced v" .. FMVer .. " - Commands:")
+   FollowMe_LocalMsg("  /fm                    - Open options")
+   FollowMe_LocalMsg("  /fm help               - Show this command list")
+   FollowMe_LocalMsg("  /fm config             - Open options (alias: options)")
+   FollowMe_LocalMsg("  /fm status             - Show follow and announcement status")
+   FollowMe_LocalMsg("  /fm party | raid       - Explain the addon in group chat")
+   FollowMe_LocalMsg("  /fm whisper            - Explain the addon to your target")
+   FollowMe_LocalMsg("  Whisper: @follow or @status")
 end
 
 function FollowMe_OnLoad()
-   FM_LOAD="FollowMeEnhanced "..FMVer.." loaded";
-   SLASH_FOLLOWME1="/fm";
-   SLASH_FOLLOWME2="/followme";
-   SlashCmdList["FOLLOWME"] = FollowMe_CmdParser;
+   local message = "FollowMeEnhanced " .. FMVer .. " loaded"
+   SLASH_FOLLOWME1 = "/fm"
+   SLASH_FOLLOWME2 = "/followme"
+   SlashCmdList["FOLLOWME"] = FollowMe_CmdParser
 
-   FollowMe_LocalMsg(FM_LOAD);
-   UIErrorsFrame:AddMessage(FM_LOAD, 1.0, 1.0, 0.0, 1.0, UIERRORS_HOLD_TIME);
-   FollowMe_InitOptions();
-   
-   this:RegisterEvent("VARIABLES_LOADED");
-   this:RegisterEvent("CHAT_MSG_WHISPER");
-   this:RegisterEvent("UI_ERROR_MESSAGE");
-   this:RegisterEvent("AUTOFOLLOW_BEGIN");
-   this:RegisterEvent("AUTOFOLLOW_END");
+   FollowMe_LocalMsg(message)
+   UIErrorsFrame:AddMessage(message, 1.0, 1.0, 0.0, 1.0, UIERRORS_HOLD_TIME)
+
+   -- Do not initialize SavedVariables before VARIABLES_LOADED.
+   this:RegisterEvent("VARIABLES_LOADED")
+   this:RegisterEvent("CHAT_MSG_WHISPER")
+   this:RegisterEvent("UI_ERROR_MESSAGE")
+   this:RegisterEvent("AUTOFOLLOW_BEGIN")
+   this:RegisterEvent("AUTOFOLLOW_END")
 end
 
--- /fm command handler
+-- /fm and /followme local commands.
 function FollowMe_CmdParser(parm)
-   parm=string.lower(parm);
---   FollowMe_LocalMsg(parm);
+   FollowMe_InitOptions()
 
-   -- Code "borrowed" from AutoDruidBuff...
-   local x, y, cmd, opr=string.find(parm, "(%w+) (%w+)");
-   if ( cmd == nil ) then
-      x, y, cmd=string.find(parm, "(%w+)");
-      if ( cmd == nil ) then
-         FollowMe_LocalMsg("FollowMeEnhanced v"..FMVer);
-         FollowMe_LocalMsg(FM_USE_TITLE);
-         FollowMe_LocalMsg(FM_USE_STATUS);
-         FollowMe_LocalMsg(FM_USE_ENABLE);
-         FollowMe_LocalMsg(FM_USE_DISABLE);
-         FollowMe_LocalMsg(FM_USE_GUILD);
-         FollowMe_LocalMsg(FM_USE_FRIENDS);
-         FollowMe_LocalMsg(FM_USE_ANNOUNCE1);
-         FollowMe_LocalMsg(FM_USE_ANNOUNCE2);
-         FollowMe_LocalMsg(FM_USE_RAID1);
-         FollowMe_LocalMsg(FM_USE_RAID2);
-         FollowMe_LocalMsg(FM_USE_WHISPER1);
-         FollowMe_LocalMsg(FM_USE_WHISPER2);
-         FollowMe_LocalMsg(FM_USE_TELL1);
-         FollowMe_LocalMsg(FM_USE_TELL2);
-         FollowMe_LocalMsg(FM_USE_TELL3);
-         FollowMe_LocalMsg(FM_USE_TELL4);
-         return;
-      end
-   end
+   local raw = parm or ""
+   local text = string.lower(raw)
+   local _, _, cmd, option = string.find(text, "^%s*(%S+)%s*(.-)%s*$")
 
-   --Status
-   if ( cmd == FM_COMMAND_STATUS ) then
-   
-      if ( ( tellgrp == nil ) or ( tellraid == nil ) ) then
-         FollowMe_InitOptions();
-      end
-      
-      if ( FMEnabled ) then
-         msg=FM_STATUS_ENABLED;
+   if not cmd or cmd == "config" or cmd == "options" then
+      if type(FME_ToggleOptions) == "function" then
+         FME_ToggleOptions()
       else
-         msg=FM_STATUS_DISABLED;
+         FollowMe_LocalMsg("FollowMeEnhanced: Options UI unavailable.")
       end
-      FollowMe_LocalMsg("FollowMeEnhanced: "..msg );
-      FollowMe_LocalMsg(FM_STATUS_GROUP..tellgrp..".");
-      FollowMe_LocalMsg(FM_STATUS_RAID..tellraid..".");
-      FollowMe_LocalMsg(FM_STATUS_GUILD..followguild..".");
-      FollowMe_LocalMsg(FM_STATUS_FRIENDS..followfriends..".");
-      UIErrorsFrame:AddMessage(FM_STATUS_GROUP..tellgrp..".", 1.0, 1.0, 0.0, 1.0, UIERRORS_HOLD_TIME);
-      UIErrorsFrame:AddMessage(FM_STATUS_RAID..tellraid..".", 1.0, 1.0, 0.0, 1.0, UIERRORS_HOLD_TIME);
-      UIErrorsFrame:AddMessage(FM_STATUS_GUILD..followguild..".", 1.0, 1.0, 0.0, 1.0, UIERRORS_HOLD_TIME);
-      UIErrorsFrame:AddMessage(FM_STATUS_FRIENDS..followfriends..".", 1.0, 1.0, 0.0, 1.0, UIERRORS_HOLD_TIME);
-      UIErrorsFrame:AddMessage("FollowMeEnhanced: "..msg, 1.0, 1.0, 0.0, 1.0, UIERRORS_HOLD_TIME);
-      return;
+      return
    end
 
-   -- Enable or disable wisp
-   if ( cmd == FM_COMMAND_WISP ) then
-      if ( GetNumPartyMembers() > 0 ) then
-         msg=FM_ANNOUNCE;
-         SendChatMessage(msg, "PARTY", nil, nil);
+   if cmd == "help" then
+      FollowMe_ShowHelp()
+      return
+   end
+
+   if cmd == FM_COMMAND_STATUS then
+      FollowMe_LocalMsg("FollowMeEnhanced: " .. FollowMe_EnabledText(FMEnabled))
+      FollowMe_LocalMsg(FM_STATUS_GROUP .. tellgrp .. ".")
+      FollowMe_LocalMsg(FM_STATUS_RAID .. tellraid .. ".")
+      FollowMe_LocalMsg(FM_STATUS_GUILD .. followguild .. ".")
+      FollowMe_LocalMsg(FM_STATUS_FRIENDS .. followfriends .. ".")
+      FollowMe_LocalMsg("   Party follow requests: " ..
+         FollowMe_EnabledText(FollowMe_Options["AllowParty"]))
+      FollowMe_LocalMsg("   Raid follow requests: " ..
+         FollowMe_EnabledText(FollowMe_Options["AllowRaid"]))
+      if following then
+         FollowMe_LocalMsg(FM_WHISPER_STATUS_FOLLOW .. following)
       end
-      return;
+      return
    end
 
-   --Announce Party
-   if ( cmd == FM_COMMAND_ANNOUNCE ) then
-      local FMWisp=true;
-   end
-
-   --Announce Raid
-   if ( cmd == FM_COMMAND_RAID ) then
-      if ( GetNumRaidMembers() > 0 ) then
-         msg=FM_ANNOUNCE;
-         SendChatMessage(msg, "RAID", nil, nil);
+   if cmd == FM_COMMAND_ANNOUNCE then
+      if GetNumPartyMembers() > 0 then
+         SendChatMessage(FM_ANNOUNCE, "PARTY")
       end
-      return;
+      return
    end
 
-   --Announce Target
-   if ( cmd == FM_COMMAND_TARGET ) then
-      msg=FM_ANNOUNCE;
-      FollowMe_SendWhisper(UnitName("target"), msg);
-      return;
+   if cmd == FM_COMMAND_RAID then
+      if GetNumRaidMembers() > 0 then
+         SendChatMessage(FM_ANNOUNCE, "RAID")
+      end
+      return
    end
 
-   --Enable
-   if ( cmd == FM_COMMAND_ENABLE ) then
-      FollowMe_LocalMsg("FollowMeEnhanced "..FM_STATUS_ENABLED);
-      UIErrorsFrame:AddMessage("FollowMeEnhanced "..FM_STATUS_ENABLED, 1.0, 1.0, 0.0, 1.0, UIERRORS_HOLD_TIME);
-      FMEnabled=true;
-      return;
-   end
-
-   --Disable
-   if ( cmd == FM_COMMAND_DISABLE ) then
-      FollowMe_LocalMsg("FollowMeEnhanced "..FM_STATUS_DISABLED);
-      UIErrorsFrame:AddMessage("FollowMeEnhanced "..FM_STATUS_DISABLED, 1.0, 1.0, 0.0, 1.0, UIERRORS_HOLD_TIME);
-      FMEnabled=false;
-      return;
-   end
-   
-   --Guild
-   if ( cmd == FM_COMMAND_FOLLOWGUILD ) then
-      if (opr == FM_GROUP_ON ) then
-         followguild=FM_STATUS_ENABLED;
-         FollowMe_Options["FollowGuild"] = true;
-      elseif ( opr == FM_GROUP_OFF) then
-         followguild=FM_STATUS_DISABLED;
-         FollowMe_Options["FollowGuild"] = false;
+   if cmd == FM_COMMAND_TARGET then
+      if UnitExists("target") and UnitIsPlayer("target") then
+         FollowMe_SendWhisper(UnitName("target"), FM_ANNOUNCE)
       else
-         FollowMe_LocalMsg("/fm "..FM_USE_GUILD);
-         return;
+         FollowMe_LocalMsg(FM_ERR_NO_PLAYER_TARGET)
       end
-      FollowMe_LocalMsg(FM_FOLLOWGUILD..followguild..".");
-      UIErrorsFrame:AddMessage(FM_FOLLOWGUILD..followguild..".", 1.0, 1.0, 0.0, 1.0, UIERRORS_HOLD_TIME);
-   end
-   
-   --Friends
-   if ( cmd == FM_COMMAND_FOLLOWFRIENDS ) then
-      if (opr == FM_GROUP_ON ) then
-         followfriends=FM_STATUS_ENABLED;
-         FollowMe_Options["FollowFriends"] = true;
-      elseif ( opr == FM_GROUP_OFF) then
-         followfriends=FM_STATUS_DISABLED;
-         FollowMe_Options["FollowFriends"] = false;
-      else
-         FollowMe_LocalMsg("/fm "..FM_USE_FRIENDS);
-         return;
-      end
-      FollowMe_LocalMsg(FM_FOLLOWFRIENDS..followfriends..".");
-      UIErrorsFrame:AddMessage(FM_FOLLOWFRIENDS..followfriends..".", 1.0, 1.0, 0.0, 1.0, UIERRORS_HOLD_TIME);
+      return
    end
 
-   --Tellgroup
-   if ( cmd == FM_COMMAND_TELLGROUP ) then
-      if (opr == FM_GROUP_ON ) then
-         tellgrp=FM_GROUP_ON;
-         FollowMe_Options["Group"] = true;
-      elseif ( opr == FM_GROUP_OFF) then
-         tellgrp=FM_GROUP_OFF;
-         FollowMe_Options["Group"] = false;
-      else
-         FollowMe_LocalMsg("/fm "..FM_USE_TELL1);
-         FollowMe_LocalMsg("    "..FM_USE_TELL2);
-         return;
-      end
-      FollowMe_LocalMsg(FM_TELLGROUP..tellgrp);
-      UIErrorsFrame:AddMessage(FM_TELLGROUP..tellgrp, 1.0, 1.0, 0.0, 1.0, UIERRORS_HOLD_TIME);
-   end
-   
-   --Tellraid
-   if ( cmd == FM_COMMAND_TELLRAID ) then
-      if (opr == FM_GROUP_ON ) then
-         tellraid=FM_GROUP_ON;
-         FollowMe_Options["Raid"] = true;
-      elseif ( opr == FM_GROUP_OFF) then
-         tellraid=FM_GROUP_OFF;
-         FollowMe_Options["Raid"] = true;
-      else
-         FollowMe_LocalMsg("/fm "..FM_USE_TELL3);
-         FollowMe_LocalMsg("    "..FM_USE_TELL4);
-         return;
-      end
-      FollowMe_LocalMsg(FM_TELLRAID..tellraid);
-      UIErrorsFrame:AddMessage(FM_TELLRAID..tellraid, 1.0, 1.0, 0.0, 1.0, UIERRORS_HOLD_TIME);
-   end
-   
+   FollowMe_ShowHelp()
 end
 
--- Whisper Function
-function FollowMe_SendWhisper(name, message)
-   if( FMWisp ) then
-      SendChatMessage(message, "WHISPER", nil, name);
-   end
-   
-end
-
--- Event handler (receive whisper, UI error, auto-follow begin/end, etc)
-function FollowMe_OnEvent(event)
-
-   -- Saved Variables loaded
-   if ( event == "VARIABLES_LOADED" ) then
-      FollowMe_InitOptions();
-   end
-
-   -- Chat Message Received --
-   if ( event == "CHAT_MSG_WHISPER" ) then
-      if ( arg1 and arg2 ) then
-         sender=arg2;
-   	     FollowMe_ProcessWhisper(arg1, arg2);
-      end
-   end
-
-   -- Trap UI Errors
-   if ( event == "UI_ERROR_MESSAGE" ) then
-      if ( arg1 == ERR_AUTOFOLLOW_TOO_FAR ) then
-         FollowMe_SendWhisper(sender, FM_ERR_AUTOFOLLOW_TOO_FAR);
-         following=nil;
-      else
-          if ( arg1 == ERR_INVALID_FOLLOW_TARGET ) then
-             FollowMe_SendWhisper(sender, FM_ERR_INVALID_FOLLOW_TARGET);
-             following=nil;
-          end
-      end
-      return;
-   end
-
--- AutoFollow Begin --
-   if ( event == "AUTOFOLLOW_BEGIN" ) then
-      following=arg1;
-      if ( following ~= nil ) then
-         FollowMe_SendWhisper(following, FM_WHISPER_AUTOFOLLOW_BEGIN);
-         if( ( tellgrp == FM_GROUP_ON ) and ( GetNumPartyMembers() > 0 ) ) then
-            SendChatMessage(FM_PARTY_AUTOFOLLOW_BEGIN..following, "PARTY", nil, nil);
-            return;
-         end
-         if ( ( tellraid == FM_GROUP_ON ) and ( GetNumRaidMembers() > 0 ) ) then
-            SendChatMessage(FM_PARTY_AUTOFOLLOW_BEGIN..following, "RAID", nil, nil);
-            return;
-         end
-      end
-   end
-
--- AutoFollow End --
-   if ( event == "AUTOFOLLOW_END" ) then
-      if ( following ~= nil ) then
-         FollowMe_SendWhisper(following, FM_WHISPER_AUTOFOLLOW_END);
-         if ( ( tellgrp == FM_GROUP_ON ) and ( GetNumPartyMembers() > 0 ) ) then
-            SendChatMessage(FM_PARTY_AUTOFOLLOW_END..following, "PARTY", nil, nil);
-         end
-         if ( ( tellraid == FM_GROUP_ON ) and ( GetNumRaidMembers() > 0 ) ) then
-            SendChatMessage(FM_PARTY_AUTOFOLLOW_END..following, "RAID", nil, nil);
-         end
-         following=nil;
-      end
-   end
-end
-
--- Parse the received whisper.
--- "!follow" turns on auto-follow
--- "!status" returns the addon status (Enabled/Disabled).
-function FollowMe_ProcessWhisper(whisper, sender)
-   tok=string.sub(whisper,1,1)
-   if ( tok ~= "#" ) then
-	   return;
-   end
-   --tik, tak = string.gsub(whisper,"^(%S+)%s+(.+)", print)
-
-   if ( string.sub(whisper,1,5) == FM_WHISPERCOMMAND_CAST ) then
-      if ( FMEnabled == false ) then
-         FollowMe_SendWhisper(sender, FM_WHISPER_DISABLED);
-         return;
-      end
-	  
-	  RunScript(CastSpellByName("Holy Light"));
-	  
-	  for k,v in pairs(FM_LIST_OF_SPELLS) do 
-			if(string.sub(whisper,7,string.len(whisper))== v) then
-				--CastSpellByName(FM_HOLY_LIGHT);
-				--SendChatMessage("/cast " .. FM_HOLY_LIGHT, "WHISPER", nil, "Cromsson");
-				--SendChatMessage("/run RemoveExtraSpaces=RunScript(CastSpellByName 'Holy Light')", "WHISPER", nil, "Cromsson");
-				
-				return;
-			end
-	  end
-   end
-
-   if ( string.sub(whisper,1,7) == FM_WHISPERCOMMAND_TARGET ) then
-      if ( FMEnabled == false ) then
-         FollowMe_SendWhisper(sender, FM_WHISPER_DISABLED);
-         return;
-      end
-      TargetByName(string.sub(whisper,9,string.len(whisper)));
-   end
-
-   if (string.find(whisper, " ") == nil ) then
-      cmd=string.lower(whisper);
-   else
-      cmd=string.lower(string.sub(whisper, 1, string.find(whisper, " ")));
-   end
-
-
-
-   if ( cmd == FM_WHISPERCOMMAND_FOLLOW ) then
-      if ( FMEnabled == false ) then
-         FollowMe_SendWhisper(sender, FM_WHISPER_DISABLED);
-         return;
-      end
-      --FollowMe_InMyGroup(sender)
-      TargetByName(sender);
-      if ( UnitName("target") == sender ) then
-         FollowUnit("target");
-         TargetLastTarget();
-      else
-         FollowMe_SendWhisper(sender, FM_ERR_GENERIC);
-         TargetLastTarget();
-      end
-   end
-
-   if ( cmd == FM_WHISPERCOMMAND_STATUS ) then
-      msg="FollowMeEnhanced ("..FMVer.."): ";
-      if ( FMEnabled == false ) then
-         msg=msg..FM_STATUS_DISABLED;
-      else
-         msg=msg..FM_STATUS_ENABLED;
-         if ( following ~= nil ) then
-            msg=msg..FM_WHISPER_STATUS_FOLLOW..following;
-         end
-      end
-      FollowMe_SendWhisper(sender, msg);
-   end
-end
-
-
--- This function is based on WhisperCast:
--- Modification for raid and cosmetics inspired by "FollowTheLeader"
+-- Independent authorizations for party, raid, friends and guild members.
 function FollowMe_InMyGroup(name)
-   if ( name == UnitName("player" ) ) then
-      return true;
-   else
+   if type(name) ~= "string" or name == "" then
+      return false
+   end
 
-      local numParty = GetNumPartyMembers();
-      if ( numParty > 0 ) then
-		for i=1, numParty do
-            if ( name == UnitName("party"..i) ) then
-               return true;
+   if name == UnitName("player") then
+      return true
+   end
+
+   -- Party permission is only effective outside a raid. Even if a
+   -- custom client exposes party units while raiding, they must not
+   -- bypass the separate raid permission.
+   local numRaid = GetNumRaidMembers()
+   if numRaid > 0 then
+      if FollowMe_Options["AllowRaid"] then
+         for i = 1, numRaid do
+            if name == UnitName("raid" .. i) then
+               return true
             end
-        end
+         end
       end
-      
-      local numRaid = GetNumRaidMembers();
-      if ( numRaid > 0 ) then
-		for i=1, numRaid do
-            if ( name == UnitName("raid"..i) ) then
-               return true;
-            end
+   elseif FollowMe_Options["AllowParty"] then
+      local numParty = GetNumPartyMembers()
+      for i = 1, numParty do
+         if name == UnitName("party" .. i) then
+            return true
          end
-	  end
-	  
-      local numFriends = GetNumFriends();
-      if ( ( numFriends > 0 ) and ( FollowMe_Options["FollowFriends"] ) ) then
-		for i=1, numFriends do
-            if ( name == GetFriendInfo(i) ) then
-               return true;
-            end
-         end
-	  end
+      end
+   end
 
-      if ( IsInGuild() ) then
-		for i=1, GetNumGuildMembers() do
-            if ( ( name == GetGuildRosterInfo(i) )  and ( FollowMe_Options["FollowGuild"] ) ) then
-               return true;
-            end
+   if FollowMe_Options["FollowFriends"] then
+      for i = 1, GetNumFriends() do
+         if name == GetFriendInfo(i) then
+            return true
          end
-	  end
+      end
+   end
 
-	  return false;
+   if FollowMe_Options["FollowGuild"] and IsInGuild() then
+      for i = 1, GetNumGuildMembers() do
+         if name == GetGuildRosterInfo(i) then
+            return true
+         end
+      end
+   end
+
+   return false
+end
+
+-- Called by CHAT_MSG_WHISPER. Only exact @follow and @status are accepted.
+function FollowMe_ProcessWhisper(whisper, requester)
+   if type(whisper) ~= "string" or type(requester) ~= "string" or requester == "" then
+      return
+   end
+
+   -- No pattern-based execution of arbitrary commands or macro text.
+   local _, _, command = string.find(string.lower(whisper), "^%s*(%S+)%s*$")
+   if command == FM_WHISPERCOMMAND_FOLLOW then
+      FollowMe_InitOptions()
+      if not FMEnabled then
+         FollowMe_SendWhisper(requester, FM_WHISPER_DISABLED)
+         return
+      end
+      if not FollowMe_InMyGroup(requester) then
+         FollowMe_SendWhisper(requester, FM_ERR_NOGROUP)
+         return
+      end
+
+      -- Track this authorized request before calling FollowByName so
+      -- synchronous follow errors are associated with the correct sender.
+      pendingFollow = { name = requester, expires = GetTime() + 2 }
+      -- Vanilla API: follow the whisper sender without changing our target.
+      FollowByName(requester)
+      return
+   end
+
+   if command == FM_WHISPERCOMMAND_STATUS then
+      FollowMe_InitOptions()
+      local response = "FollowMeEnhanced (" .. FMVer .. "): " .. FollowMe_EnabledText(FMEnabled)
+      if FMEnabled and following then
+         response = response .. FM_WHISPER_STATUS_FOLLOW .. following
+      end
+      FollowMe_SendWhisper(requester, response)
    end
 end
 
--- Init Options
-function FollowMe_InitOptions()
-
-   if ( FollowMe_Options == nil ) then
-      FollowMe_Options = {
-         ["Raid"] = false,
-         ["Group"] = false,
-         ["FollowFriends"] = false,
-         ["FollowGuild"] = false
-      }
-   end
-   
-   if ( FollowMe_Options["Raid"] ) then
-      tellraid=FM_GROUP_ON;
-   else
-      tellraid=FM_GROUP_OFF;
-   end
-   
-   if ( FollowMe_Options["Group"] ) then
-      tellgrp=FM_GROUP_ON;
-   else
-      tellgrp=FM_GROUP_OFF;
-   end
-   
-   if ( FollowMe_Options["FollowGuild"] ) then
-      followguild=FM_STATUS_ENABLED;
-   else
-      followguild=FM_STATUS_DISABLED;
+function FollowMe_OnEvent(event)
+   if event == "VARIABLES_LOADED" then
+      FollowMe_InitOptions()
+      return
    end
 
-   if ( FollowMe_Options["FollowFriends"] ) then
-      followfriends=FM_STATUS_ENABLED;
-   else
-      followfriends=FM_STATUS_DISABLED;
+   if event == "CHAT_MSG_WHISPER" then
+      if arg1 and arg2 then
+         FollowMe_ProcessWhisper(arg1, arg2)
+      end
+      return
    end
 
+   if event == "UI_ERROR_MESSAGE" then
+      if pendingFollow then
+         local request = pendingFollow
+         if GetTime() > request.expires then
+            pendingFollow = nil
+         elseif arg1 == ERR_AUTOFOLLOW_TOO_FAR or arg1 == ERR_INVALID_FOLLOW_TARGET then
+            pendingFollow = nil
+            if arg1 == ERR_AUTOFOLLOW_TOO_FAR then
+               FollowMe_SendWhisper(request.name, FM_ERR_AUTOFOLLOW_TOO_FAR)
+            else
+               FollowMe_SendWhisper(request.name, FM_ERR_INVALID_FOLLOW_TARGET)
+            end
+         end
+      end
+      return
+   end
+
+   if event == "AUTOFOLLOW_BEGIN" then
+      local newFollowing = arg1
+      if (not newFollowing or newFollowing == "") and pendingFollow then
+         newFollowing = pendingFollow.name
+      end
+      pendingFollow = nil
+      following = newFollowing
+      if type(FME_RefreshOptions) == "function" then FME_RefreshOptions() end
+      if following and following ~= "" then
+         FollowMe_SendWhisper(following, FM_WHISPER_AUTOFOLLOW_BEGIN)
+         if tellgrp == FM_GROUP_ON and GetNumPartyMembers() > 0 then
+            SendChatMessage(FM_PARTY_AUTOFOLLOW_BEGIN .. following, "PARTY")
+         elseif tellraid == FM_GROUP_ON and GetNumRaidMembers() > 0 then
+            SendChatMessage(FM_PARTY_AUTOFOLLOW_BEGIN .. following, "RAID")
+         end
+      end
+      return
+   end
+
+   if event == "AUTOFOLLOW_END" then
+      pendingFollow = nil
+      if following and following ~= "" then
+         FollowMe_SendWhisper(following, FM_WHISPER_AUTOFOLLOW_END)
+         if tellgrp == FM_GROUP_ON and GetNumPartyMembers() > 0 then
+            SendChatMessage(FM_PARTY_AUTOFOLLOW_END .. following, "PARTY")
+         elseif tellraid == FM_GROUP_ON and GetNumRaidMembers() > 0 then
+            SendChatMessage(FM_PARTY_AUTOFOLLOW_END .. following, "RAID")
+         end
+      end
+      following = nil
+      if type(FME_RefreshOptions) == "function" then FME_RefreshOptions() end
+   end
 end
