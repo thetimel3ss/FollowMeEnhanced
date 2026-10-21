@@ -2,7 +2,6 @@
 -- No remote cast, macro, Nampower or ClassicAPI dependencies.
 local optionsFrame
 local checks = {}
-local followStatus
 
 local function FME_Label(parent, value, x, y, font)
    local label = parent:CreateFontString(nil, "OVERLAY", font or "GameFontNormal")
@@ -53,14 +52,6 @@ function FME_RefreshOptions()
    FollowMe_InitOptions()
    for key, check in pairs(checks) do
       check:SetChecked(FollowMe_Options[key] and 1 or nil)
-   end
-   if followStatus then
-      local target = FME_GetFollowStatus()
-      if target and target ~= "" then
-         followStatus:SetText("Currently following: " .. target)
-      else
-         followStatus:SetText("Currently following: nobody")
-      end
    end
 end
 
@@ -118,10 +109,8 @@ local function FME_CreateOptions()
       "Announce in raid chat when you start or stop auto-following. Party announcements take precedence if both qualify.",
       235, -262, 150)
 
-   followStatus = FME_Label(optionsFrame, "Currently following: nobody",
-      30, -309, "GameFontHighlightSmall")
    FME_Label(optionsFrame, "Whisper commands: @follow  |  @status",
-      30, -327, "GameFontHighlightSmall")
+      30, -309, "GameFontHighlightSmall")
 
    local help = CreateFrame("Button", "FMEHelpButton", optionsFrame,
       "UIPanelButtonTemplate")

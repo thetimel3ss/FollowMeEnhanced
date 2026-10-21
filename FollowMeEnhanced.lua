@@ -82,10 +82,6 @@ function FME_SetOption(key, enabled)
    if type(FME_RefreshOptions) == "function" then FME_RefreshOptions() end
 end
 
-function FME_GetFollowStatus()
-   return following
-end
-
 function FollowMe_SendWhisper(name, message)
    if type(name) == "string" and name ~= "" and type(message) == "string" and message ~= "" then
       SendChatMessage(message, "WHISPER", nil, name)
