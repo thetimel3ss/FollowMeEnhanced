@@ -1,8 +1,16 @@
 ================================================================
-FollowMe Enhanced - Follow-only edition (Vanilla WoW 1.12.1)
+FollowMe Enhanced v1.3.0 - Follow-only edition (Vanilla WoW 1.12.1)
 ================================================================
 
 No remote cast, @assist, macro execution or Nampower integration.
+
+RELEASE NOTES - v1.3.0
+  - Adds a movable options UI with seven persistent checkboxes and tooltips.
+  - Separates party and raid follow permissions while preserving prior settings.
+  - Accepts authorized @follow requests via FollowByName without changing target.
+  - Retains @status, follow start/end notifications and scoped error handling.
+  - Consolidates English localization; removes unused experimental features.
+  - Based on Lyriane's FollowMe Enhanced v1.2b and Kinyen's original FollowMe.
 
 LOCAL COMMANDS
   /fm                - Open or close the options UI

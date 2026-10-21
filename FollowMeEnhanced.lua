@@ -1,7 +1,7 @@
 --
--- FollowMe Enhanced 1.2b
--- by Lyriane of EU-Alleria
--- based on FollowMe 1.1.1a by Kinyen (Kingen in inherited header)
+-- FollowMe Enhanced 1.3.0
+-- based on FollowMe Enhanced 1.2b by Lyriane of EU-Alleria
+-- originally FollowMe 1.1.1a by Kinyen (Kingen in inherited header)
 --
 -- Follow-only fixes: persistent enabled state, safer authorization,
 -- command parsing, target-independent follow, and scoped follow error reports.
@@ -12,7 +12,7 @@
 local following = nil
 local pendingFollow = nil
 local FMEnabled = true
-local FMVer = "1.2b"
+local FMVer = "1.3.0"
 local tellgrp, tellraid, followguild, followfriends
 
 local function FollowMe_EnabledText(enabled)
