@@ -37,10 +37,18 @@ function FollowMe_LocalMsg(txt)
    DEFAULT_CHAT_FRAME:AddMessage(txt)
 end
 
+-- Optional progress whispers only go to the player who requested @follow.
+-- Normal follow and error whispers remain independent of this setting.
+local function FollowMe_RetryFeedback(name, message)
+   if FollowMe_Options and FollowMe_Options["RetryWhispers"] then
+      FollowMe_SendWhisper(name, "FollowMeEnhanced: " .. message)
+   end
+end
+
 -- Cancel pending automatic attempts without affecting a follow in progress.
 local function FollowMe_CancelRetry(reason)
    if retryFollow and reason then
-      FollowMe_LocalMsg("FollowMeEnhanced: " .. reason)
+      FollowMe_RetryFeedback(retryFollow.name, reason)
    end
    retryFollow = nil
    if pendingFollow and pendingFollow.isRetry then
@@ -78,6 +86,11 @@ function FollowMe_InitOptions()
          FollowMe_Options[key] = false
       end
    end
+   -- Retain retry feedback for existing users; this option controls
+   -- only optional whispers, never the retry mechanism itself.
+   if type(FollowMe_Options["RetryWhispers"]) ~= "boolean" then
+      FollowMe_Options["RetryWhispers"] = true
+   end
 
    FMEnabled = FollowMe_Options["Enabled"]
    tellgrp = FollowMe_GroupText(FollowMe_Options["Group"])
@@ -89,7 +102,8 @@ end
 local FOLLOW_SETTINGS = {
    Enabled = true, AllowParty = true, AllowRaid = true,
    Group = true, Raid = true,
-   FollowFriends = true, FollowGuild = true, AutoRetry = true
+   FollowFriends = true, FollowGuild = true, AutoRetry = true,
+   RetryWhispers = true
 }
 
 function FME_SetOption(key, enabled)
@@ -172,6 +186,8 @@ function FollowMe_CmdParser(parm)
          FollowMe_EnabledText(FollowMe_Options["AllowRaid"]))
       FollowMe_LocalMsg("   Auto retry failed follow: " ..
          FollowMe_EnabledText(FollowMe_Options["AutoRetry"]))
+      FollowMe_LocalMsg("   Whisper retry updates: " ..
+         FollowMe_EnabledText(FollowMe_Options["RetryWhispers"]))
       if following then
          FollowMe_LocalMsg(FM_WHISPER_STATUS_FOLLOW .. following)
       end
@@ -279,8 +295,8 @@ local function FollowMe_RetryOnUpdate()
    end
 
    retryFollow.attempts = retryFollow.attempts + 1
-   FollowMe_LocalMsg("FollowMeEnhanced: Auto retry " .. retryFollow.attempts
-      .. "/" .. RETRY_MAX_ATTEMPTS .. " - following " .. retryFollow.name .. ".")
+   FollowMe_RetryFeedback(retryFollow.name, "Auto retry " .. retryFollow.attempts
+      .. "/" .. RETRY_MAX_ATTEMPTS .. " - trying to follow you.")
    pendingFollow = {
       name = retryFollow.name,
       expires = now + 2,
@@ -295,8 +311,8 @@ local function FollowMe_ScheduleRetry(name)
       retryFrame = CreateFrame("Frame")
    end
    retryFrame:SetScript("OnUpdate", FollowMe_RetryOnUpdate)
-   FollowMe_LocalMsg("FollowMeEnhanced: Target too far. Auto retry scheduled for "
-      .. name .. " (up to " .. RETRY_MAX_ATTEMPTS .. " attempts).")
+   FollowMe_RetryFeedback(name, "You're too far away. Auto retry scheduled"
+      .. " (up to " .. RETRY_MAX_ATTEMPTS .. " attempts).")
 end
 
 -- Called by CHAT_MSG_WHISPER. Only exact @follow and @status are accepted.
@@ -398,8 +414,8 @@ function FollowMe_OnEvent(event)
       if retryFollow and pendingFollow and pendingFollow.isRetry
          and pendingFollow.name == retryFollow.name
          and newFollowing == retryFollow.name then
-         FollowMe_LocalMsg("FollowMeEnhanced: Auto retry succeeded - following "
-            .. retryFollow.name .. ".")
+         FollowMe_RetryFeedback(retryFollow.name,
+            "Auto retry succeeded - now following you.")
       end
       FollowMe_CancelRetry()
       pendingFollow = nil

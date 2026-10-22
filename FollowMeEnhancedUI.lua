@@ -60,7 +60,7 @@ local function FME_CreateOptions()
 
    optionsFrame = CreateFrame("Frame", "FMEOptionsFrame", UIParent)
    optionsFrame:SetWidth(450)
-   optionsFrame:SetHeight(400)
+   optionsFrame:SetHeight(430)
    optionsFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
    optionsFrame:SetFrameStrata("DIALOG")
    optionsFrame:EnableMouse(true)
@@ -88,34 +88,37 @@ local function FME_CreateOptions()
       "Master switch for incoming @follow requests. When off, nobody can request follow.",
       27, -83, 165)
    FME_Check(optionsFrame, "AutoRetry", "Auto retry failed follow",
-      "After an authorized @follow fails because the sender is too far away, retry up to 3 times at 5-second intervals. Shows retry progress in your chat; never restarts a manually ended follow.",
+      "After an authorized @follow fails because the sender is too far away, retry up to 3 times at 5-second intervals. Never restarts a manually ended follow.",
       235, -83, 165)
+   FME_Check(optionsFrame, "RetryWhispers", "Whisper retry updates",
+      "Whisper the player who requested @follow when retries are scheduled, attempted, successful or canceled. Does not affect the retry feature or normal follow/error messages.",
+      27, -118, 200)
 
-   FME_Label(optionsFrame, "Permissions", 27, -124)
+   FME_Label(optionsFrame, "Permissions", 27, -158)
    -- Permission matrix: friends | guildmates, then party | raid.
    FME_Check(optionsFrame, "FollowFriends", "Allow friends",
       "Allow characters on your friends list to request @follow, regardless of party or raid membership.",
-      27, -145, 165)
+      27, -179, 165)
    FME_Check(optionsFrame, "FollowGuild", "Allow guildmates",
       "Allow members of your guild to request @follow, regardless of party or raid membership.",
-      235, -145, 165)
+      235, -179, 165)
    FME_Check(optionsFrame, "AllowParty", "Allow party",
       "Allow members of your current party to request @follow. This does not grant access to raid members.",
-      27, -182, 165)
+      27, -216, 165)
    FME_Check(optionsFrame, "AllowRaid", "Allow raid",
       "Allow members of your current raid to request @follow. This setting is independent of Allow party.",
-      235, -182, 165)
+      235, -216, 165)
 
-   FME_Label(optionsFrame, "Announcements", 27, -243)
+   FME_Label(optionsFrame, "Announcements", 27, -266)
    FME_Check(optionsFrame, "Group", "Party",
       "Announce in party chat when you start or stop auto-following. This does not grant follow permission.",
-      27, -262, 150)
+      27, -287, 150)
    FME_Check(optionsFrame, "Raid", "Raid",
       "Announce in raid chat when you start or stop auto-following. Party announcements take precedence if both qualify.",
-      235, -262, 150)
+      235, -287, 150)
 
    FME_Label(optionsFrame, "Whisper commands: @follow  |  @status",
-      30, -309, "GameFontHighlightSmall")
+      30, -342, "GameFontHighlightSmall")
 
    local help = CreateFrame("Button", "FMEHelpButton", optionsFrame,
       "UIPanelButtonTemplate")
@@ -128,7 +131,7 @@ local function FME_CreateOptions()
    end)
 
    FME_Label(optionsFrame, "Use /fm help for the full list",
-      30, -358, "GameFontHighlightSmall")
+      30, -387, "GameFontHighlightSmall")
    optionsFrame:SetScript("OnShow", FME_RefreshOptions)
    FME_RefreshOptions()
 end
