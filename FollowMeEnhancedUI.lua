@@ -101,6 +101,10 @@ local function FME_CreateOptions()
       "Allow members of your current raid to request @follow. This setting is independent of Allow party.",
       235, -157, 165)
 
+   FME_Check(optionsFrame, "AutoRetry", "Auto retry failed follow",
+      "After an authorized @follow fails because the sender is too far away, retry up to 3 times at 5-second intervals. Stops on success or cancellation; never restarts a manually ended follow.",
+      27, -198, 225)
+
    FME_Label(optionsFrame, "Announcements", 27, -243)
    FME_Check(optionsFrame, "Group", "Party",
       "Announce in party chat when you start or stop auto-following. This does not grant follow permission.",

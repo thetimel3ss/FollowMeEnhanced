@@ -11,6 +11,10 @@
 -- Local runtime state (the global FollowMe_Options is a SavedVariable).
 local following = nil
 local pendingFollow = nil
+local retryFollow = nil
+local retryFrame = nil
+local RETRY_DELAY = 5
+local RETRY_MAX_ATTEMPTS = 3
 local FMEnabled = true
 local FMVer = "1.3.0"
 local tellgrp, tellraid, followguild, followfriends
@@ -33,6 +37,17 @@ function FollowMe_LocalMsg(txt)
    DEFAULT_CHAT_FRAME:AddMessage(txt)
 end
 
+-- Cancel pending automatic attempts without affecting a follow in progress.
+local function FollowMe_CancelRetry()
+   retryFollow = nil
+   if pendingFollow and pendingFollow.isRetry then
+      pendingFollow = nil
+   end
+   if retryFrame then
+      retryFrame:SetScript("OnUpdate", nil)
+   end
+end
+
 -- Keep all persistent settings in one table for the options UI.
 -- Existing installations retain the four original option keys.
 function FollowMe_InitOptions()
@@ -53,7 +68,7 @@ function FollowMe_InitOptions()
    if type(FollowMe_Options["AllowRaid"]) ~= "boolean" then
       FollowMe_Options["AllowRaid"] = FollowMe_Options["AllowParty"]
    end
-   local keys = { "Raid", "Group", "FollowFriends", "FollowGuild" }
+   local keys = { "Raid", "Group", "FollowFriends", "FollowGuild", "AutoRetry" }
    for i = 1, table.getn(keys) do
       local key = keys[i]
       if type(FollowMe_Options[key]) ~= "boolean" then
@@ -71,7 +86,7 @@ end
 local FOLLOW_SETTINGS = {
    Enabled = true, AllowParty = true, AllowRaid = true,
    Group = true, Raid = true,
-   FollowFriends = true, FollowGuild = true
+   FollowFriends = true, FollowGuild = true, AutoRetry = true
 }
 
 function FME_SetOption(key, enabled)
@@ -79,6 +94,10 @@ function FME_SetOption(key, enabled)
    FollowMe_InitOptions()
    FollowMe_Options[key] = enabled
    FollowMe_InitOptions()
+   if retryFollow and (not FMEnabled or not FollowMe_Options["AutoRetry"]
+      or not FollowMe_InMyGroup(retryFollow.name)) then
+      FollowMe_CancelRetry()
+   end
    if type(FME_RefreshOptions) == "function" then FME_RefreshOptions() end
 end
 
@@ -148,6 +167,8 @@ function FollowMe_CmdParser(parm)
          FollowMe_EnabledText(FollowMe_Options["AllowParty"]))
       FollowMe_LocalMsg("   Raid follow requests: " ..
          FollowMe_EnabledText(FollowMe_Options["AllowRaid"]))
+      FollowMe_LocalMsg("   Auto retry failed follow: " ..
+         FollowMe_EnabledText(FollowMe_Options["AutoRetry"]))
       if following then
          FollowMe_LocalMsg(FM_WHISPER_STATUS_FOLLOW .. following)
       end
@@ -230,6 +251,48 @@ function FollowMe_InMyGroup(name)
    return false
 end
 
+-- The timer only runs while an initial @follow failed because of distance.
+-- A retry must receive AUTOFOLLOW_BEGIN or another distance error;
+-- silent / unconfirmed attempts are stopped instead of retried forever.
+local function FollowMe_RetryOnUpdate()
+   if not retryFollow then return end
+   local now = GetTime()
+
+   if pendingFollow and pendingFollow.isRetry then
+      if now > pendingFollow.expires then
+         local name = pendingFollow.name
+         FollowMe_CancelRetry()
+         FollowMe_SendWhisper(name, FM_ERR_GENERIC)
+      end
+      return
+   end
+
+   if now < retryFollow.nextTry then return end
+   FollowMe_InitOptions()
+   if following or not FMEnabled or not FollowMe_Options["AutoRetry"]
+      or not FollowMe_InMyGroup(retryFollow.name) then
+      FollowMe_CancelRetry()
+      return
+   end
+
+   retryFollow.attempts = retryFollow.attempts + 1
+   pendingFollow = {
+      name = retryFollow.name,
+      expires = now + 2,
+      isRetry = true
+   }
+   FollowByName(retryFollow.name)
+end
+
+local function FollowMe_ScheduleRetry(name)
+   retryFollow = { name = name, attempts = 0, nextTry = GetTime() + RETRY_DELAY }
+   if not retryFrame then
+      retryFrame = CreateFrame("Frame")
+   end
+   retryFrame:SetScript("OnUpdate", FollowMe_RetryOnUpdate)
+   FollowMe_LocalMsg("FollowMeEnhanced: Target too far. Auto retry scheduled.")
+end
+
 -- Called by CHAT_MSG_WHISPER. Only exact @follow and @status are accepted.
 function FollowMe_ProcessWhisper(whisper, requester)
    if type(whisper) ~= "string" or type(requester) ~= "string" or requester == "" then
@@ -249,6 +312,8 @@ function FollowMe_ProcessWhisper(whisper, requester)
          return
       end
 
+      -- An explicitly authorized @follow replaces any unfinished retry.
+      FollowMe_CancelRetry()
       -- Track this authorized request before calling FollowByName so
       -- synchronous follow errors are associated with the correct sender.
       pendingFollow = { name = requester, expires = GetTime() + 2 }
@@ -285,11 +350,30 @@ function FollowMe_OnEvent(event)
          local request = pendingFollow
          if GetTime() > request.expires then
             pendingFollow = nil
+            if request.isRetry then
+               FollowMe_CancelRetry()
+               FollowMe_SendWhisper(request.name, FM_ERR_GENERIC)
+            end
          elseif arg1 == ERR_AUTOFOLLOW_TOO_FAR or arg1 == ERR_INVALID_FOLLOW_TARGET then
             pendingFollow = nil
             if arg1 == ERR_AUTOFOLLOW_TOO_FAR then
-               FollowMe_SendWhisper(request.name, FM_ERR_AUTOFOLLOW_TOO_FAR)
+               if request.isRetry and retryFollow
+                  and retryFollow.name == request.name then
+                  if retryFollow.attempts >= RETRY_MAX_ATTEMPTS then
+                     FollowMe_CancelRetry()
+                     FollowMe_SendWhisper(request.name, FM_ERR_AUTOFOLLOW_TOO_FAR)
+                  else
+                     retryFollow.nextTry = GetTime() + RETRY_DELAY
+                  end
+               elseif not request.isRetry and FMEnabled and not following
+                  and FollowMe_Options["AutoRetry"]
+                  and FollowMe_InMyGroup(request.name) then
+                  FollowMe_ScheduleRetry(request.name)
+               elseif not request.isRetry then
+                  FollowMe_SendWhisper(request.name, FM_ERR_AUTOFOLLOW_TOO_FAR)
+               end
             else
+               if request.isRetry then FollowMe_CancelRetry() end
                FollowMe_SendWhisper(request.name, FM_ERR_INVALID_FOLLOW_TARGET)
             end
          end
@@ -302,6 +386,7 @@ function FollowMe_OnEvent(event)
       if (not newFollowing or newFollowing == "") and pendingFollow then
          newFollowing = pendingFollow.name
       end
+      FollowMe_CancelRetry()
       pendingFollow = nil
       following = newFollowing
       if type(FME_RefreshOptions) == "function" then FME_RefreshOptions() end
@@ -317,6 +402,7 @@ function FollowMe_OnEvent(event)
    end
 
    if event == "AUTOFOLLOW_END" then
+      FollowMe_CancelRetry()
       pendingFollow = nil
       if following and following ~= "" then
          FollowMe_SendWhisper(following, FM_WHISPER_AUTOFOLLOW_END)
