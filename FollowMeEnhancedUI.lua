@@ -87,23 +87,24 @@ local function FME_CreateOptions()
    FME_Check(optionsFrame, "Enabled", "Enable",
       "Master switch for incoming @follow requests. When off, nobody can request follow.",
       27, -83, 165)
+   FME_Check(optionsFrame, "AutoRetry", "Auto retry failed follow",
+      "After an authorized @follow fails because the sender is too far away, retry up to 3 times at 5-second intervals. Shows retry progress in your chat; never restarts a manually ended follow.",
+      235, -83, 165)
+
+   FME_Label(optionsFrame, "Permissions", 27, -124)
    -- Permission matrix: friends | guildmates, then party | raid.
    FME_Check(optionsFrame, "FollowFriends", "Allow friends",
       "Allow characters on your friends list to request @follow, regardless of party or raid membership.",
-      27, -120, 165)
+      27, -145, 165)
    FME_Check(optionsFrame, "FollowGuild", "Allow guildmates",
       "Allow members of your guild to request @follow, regardless of party or raid membership.",
-      235, -120, 165)
+      235, -145, 165)
    FME_Check(optionsFrame, "AllowParty", "Allow party",
       "Allow members of your current party to request @follow. This does not grant access to raid members.",
-      27, -157, 165)
+      27, -182, 165)
    FME_Check(optionsFrame, "AllowRaid", "Allow raid",
       "Allow members of your current raid to request @follow. This setting is independent of Allow party.",
-      235, -157, 165)
-
-   FME_Check(optionsFrame, "AutoRetry", "Auto retry failed follow",
-      "After an authorized @follow fails because the sender is too far away, retry up to 3 times at 5-second intervals. Stops on success or cancellation; never restarts a manually ended follow.",
-      27, -198, 225)
+      235, -182, 165)
 
    FME_Label(optionsFrame, "Announcements", 27, -243)
    FME_Check(optionsFrame, "Group", "Party",
